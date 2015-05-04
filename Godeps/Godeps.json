@@ -10,6 +10,11 @@
 			"Rev": "93a831dcee242be64a9cc9803dda84af25932de7"
 		},
 		{
+			"ImportPath": "github.com/boltdb/bolt",
+			"Comment": "v1.0-106-g5eb31d5",
+			"Rev": "5eb31d5821750fbc84284d610c0ce85261662adb"
+		},
+		{
 			"ImportPath": "github.com/calmh/logger",
 			"Rev": "c96f6a1a8c7b6bf2f4860c667867d90174799eb2"
 		},
@@ -34,12 +39,16 @@
 			"Rev": "e7db2648034fb71b051902a02bc25d4468ed492e"
 		},
 		{
-			"ImportPath": "github.com/syndtr/goleveldb/leveldb",
-			"Rev": "87e4e645d80ae9c537e8f2dee52b28036a5dd75e"
+			"ImportPath": "github.com/syndtr/goleveldb/leveldb/errors",
+			"Rev": "a86c60182559f0b9b133678d1fc1c5232e89d52e"
 		},
 		{
-			"ImportPath": "github.com/syndtr/gosnappy/snappy",
-			"Rev": "156a073208e131d7d2e212cb749feae7c339e846"
+			"ImportPath": "github.com/syndtr/goleveldb/leveldb/storage",
+			"Rev": "a86c60182559f0b9b133678d1fc1c5232e89d52e"
+		},
+		{
+			"ImportPath": "github.com/syndtr/goleveldb/leveldb/util",
+			"Rev": "a86c60182559f0b9b133678d1fc1c5232e89d52e"
 		},
 		{
 			"ImportPath": "github.com/thejerf/suture",

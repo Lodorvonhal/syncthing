@@ -33,7 +33,6 @@ import (
 	"github.com/syncthing/syncthing/internal/symlinks"
 	"github.com/syncthing/syncthing/internal/sync"
 	"github.com/syncthing/syncthing/internal/versioner"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 // How many files to send in each Index/IndexUpdate message.
@@ -61,8 +60,7 @@ type service interface {
 
 type Model struct {
 	cfg             *config.Wrapper
-	db              *leveldb.DB
-	finder          *db.BlockFinder
+	db              *db.BoltDB
 	progressEmitter *ProgressEmitter
 	id              protocol.DeviceID
 	shortID         uint64
@@ -100,11 +98,10 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *leveldb.DB) *Model {
+func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *db.BoltDB) *Model {
 	m := &Model{
 		cfg:                cfg,
 		db:                 ldb,
-		finder:             db.NewBlockFinder(ldb, cfg),
 		progressEmitter:    NewProgressEmitter(cfg),
 		id:                 id,
 		shortID:            id.Short(),
@@ -1712,6 +1709,36 @@ func (m *Model) ResetFolder(folder string) error {
 		}
 	}
 	return fmt.Errorf("Unknown folder %q", folder)
+}
+
+func (m *Model) IterateBlocks(hash []byte, fn func(folder, file string, idx int) bool) bool {
+	m.fmut.RLock()
+	fss := make(map[string]*db.FileSet, len(m.folderFiles))
+	for folder, fs := range m.folderFiles {
+		fss[folder] = fs
+	}
+	m.fmut.RUnlock()
+
+	for folder, fs := range fss {
+		done := fs.IterateBlocks(hash, func(file string, idx int) bool {
+			return fn(folder, file, idx)
+		})
+		if done {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (m *Model) FixBlock(folder, file string, index int, oldHash, newHash []byte) {
+	m.fmut.RLock()
+	fs, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+	if !ok {
+		return
+	}
+	fs.FixBlock(file, index, oldHash, newHash)
 }
 
 func (m *Model) String() string {
