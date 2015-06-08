@@ -1040,6 +1040,7 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 	maxLocalVer := int64(0)
 	var err error
 
+	var batches [][]protocol.FileInfo
 	fs.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		if f.LocalVersion <= minLocalVer {
@@ -1058,22 +1059,7 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 		}
 
 		if len(batch) == indexBatchSize || currentBatchSize > indexTargetSize {
-			if initial {
-				if err = conn.Index(folder, batch, 0, nil); err != nil {
-					return false
-				}
-				if debug {
-					l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (initial index)", deviceID, name, folder, len(batch), currentBatchSize)
-				}
-				initial = false
-			} else {
-				if err = conn.IndexUpdate(folder, batch, 0, nil); err != nil {
-					return false
-				}
-				if debug {
-					l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (batched update)", deviceID, name, folder, len(batch), currentBatchSize)
-				}
-			}
+			batches = append(batches, batch)
 
 			batch = make([]protocol.FileInfo, 0, indexBatchSize)
 			currentBatchSize = 0
@@ -1083,20 +1069,30 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 		currentBatchSize += indexPerFileSize + len(f.Blocks)*indexPerBlockSize
 		return true
 	})
+	if len(batch) > 0 {
+		batches = append(batches, batch)
+	}
 
-	if initial && err == nil {
-		err = conn.Index(folder, batch, 0, nil)
-		if debug && err == nil {
-			l.Debugf("sendIndexes for %s-%s/%q: %d files (small initial index)", deviceID, name, folder, len(batch))
-		}
-	} else if len(batch) > 0 && err == nil {
-		err = conn.IndexUpdate(folder, batch, 0, nil)
-		if debug && err == nil {
-			l.Debugf("sendIndexes for %s-%s/%q: %d files (last batch)", deviceID, name, folder, len(batch))
+	for _, batch = range batches {
+		if initial {
+			if err = conn.Index(folder, batch, 0, nil); err != nil {
+				return maxLocalVer, err
+			}
+			if debug {
+				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (initial index)", deviceID, name, folder, len(batch), currentBatchSize)
+			}
+			initial = false
+		} else {
+			if err = conn.IndexUpdate(folder, batch, 0, nil); err != nil {
+				return maxLocalVer, err
+			}
+			if debug {
+				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (batched update)", deviceID, name, folder, len(batch), currentBatchSize)
+			}
 		}
 	}
 
-	return maxLocalVer, err
+	return maxLocalVer, nil
 }
 
 func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
